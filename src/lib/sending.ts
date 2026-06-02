@@ -16,7 +16,18 @@ import {
 import type { Group, Session } from "./types";
 
 function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  // Prefer an explicitly-configured URL, but only if it's actually a URL (a
+  // pasted placeholder shouldn't end up in signup links). Otherwise fall back
+  // to Vercel's built-in production URL, which is injected automatically — so
+  // links work even if NEXT_PUBLIC_APP_URL was never set correctly.
+  const explicit = (process.env.NEXT_PUBLIC_APP_URL || "").trim();
+  if (/^https?:\/\/.+/i.test(explicit)) return explicit.replace(/\/$/, "");
+
+  const vercel =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  if (vercel) return `https://${vercel}`.replace(/\/$/, "");
+
+  return "http://localhost:3000";
 }
 
 // ── Invite one group for a session ───────────────────────────────────────────
