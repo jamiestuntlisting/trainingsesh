@@ -1,6 +1,8 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getGroupsWithMembers, getUngroupedContacts } from "@/lib/data";
+import { getGroupsWithMembers, getUngroupedContacts, type GroupWithMembers } from "@/lib/data";
+import { configDiagnostics } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
+import SetupDiagnostics from "@/components/SetupDiagnostics";
 import GroupBoard, { type GroupMeta } from "@/components/GroupBoard";
 import type { Contact } from "@/lib/types";
 
@@ -16,8 +18,16 @@ export default async function GroupsPage({
 
   if (!isSupabaseConfigured()) return <ConfigNotice />;
 
-  const groups = await getGroupsWithMembers();
-  const ungrouped = await getUngroupedContacts();
+  let groups: GroupWithMembers[];
+  let ungrouped: Contact[];
+  try {
+    groups = await getGroupsWithMembers();
+    ungrouped = await getUngroupedContacts();
+  } catch (e) {
+    return (
+      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
+    );
+  }
 
   const groupMeta: GroupMeta[] = groups.map((g) => ({
     id: g.id,

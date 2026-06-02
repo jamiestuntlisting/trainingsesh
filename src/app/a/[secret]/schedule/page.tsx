@@ -1,7 +1,9 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getGroupsWithMembers, getSettings } from "@/lib/data";
-import { WEEKDAYS } from "@/lib/types";
+import { getGroupsWithMembers, getSettings, type GroupWithMembers } from "@/lib/data";
+import { WEEKDAYS, type Settings } from "@/lib/types";
+import { configDiagnostics } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
+import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { addGroup, deleteGroup, moveGroup, updateGroup, updateSettings } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +34,16 @@ export default async function SchedulePage({
 
   if (!isSupabaseConfigured()) return <ConfigNotice />;
 
-  const settings = await getSettings();
-  const groups = await getGroupsWithMembers();
+  let settings: Settings;
+  let groups: GroupWithMembers[];
+  try {
+    settings = await getSettings();
+    groups = await getGroupsWithMembers();
+  } catch (e) {
+    return (
+      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
+    );
+  }
 
   return (
     <div className="space-y-8">

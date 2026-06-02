@@ -1,8 +1,11 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getAllContacts } from "@/lib/data";
+import { configDiagnostics } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
+import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { PasteImport, StuntlistingSync } from "@/components/ImportForms";
 import { deleteContact } from "./actions";
+import type { Contact } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +19,14 @@ export default async function ContactsPage({
 
   if (!isSupabaseConfigured()) return <ConfigNotice />;
 
-  const contacts = await getAllContacts();
+  let contacts: Contact[];
+  try {
+    contacts = await getAllContacts();
+  } catch (e) {
+    return (
+      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
+    );
+  }
 
   return (
     <div className="space-y-8">

@@ -3,9 +3,13 @@ import { emailConfigured } from "@/lib/email";
 import { calendarConfigured } from "@/lib/calendar";
 import { stuntlistingConfigured } from "@/lib/stuntlisting";
 import { getActiveSession, getSessionSignups, getSettings } from "@/lib/data";
-import { WEEKDAYS } from "@/lib/types";
+import { WEEKDAYS, type Session } from "@/lib/types";
+import { configDiagnostics } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
+import SetupDiagnostics from "@/components/SetupDiagnostics";
 import DispatchButton from "@/components/DispatchButton";
+import type { SignupWithContact } from "@/lib/data";
+import type { Settings } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +55,20 @@ export default async function Dashboard({
     );
   }
 
-  const [settings, active] = await Promise.all([getSettings(), getActiveSession()]);
-  const signups = active ? await getSessionSignups(active.id) : [];
+  let settings: Settings;
+  let active: Session | null;
+  let signups: SignupWithContact[];
+  try {
+    [settings, active] = await Promise.all([getSettings(), getActiveSession()]);
+    signups = active ? await getSessionSignups(active.id) : [];
+  } catch (e) {
+    return (
+      <SetupDiagnostics
+        diag={configDiagnostics()}
+        error={e instanceof Error ? e.message : String(e)}
+      />
+    );
+  }
   const confirmed = signups.filter((s) => s.status === "yes").length;
 
   return (

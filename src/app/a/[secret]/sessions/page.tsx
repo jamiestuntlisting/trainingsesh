@@ -1,8 +1,11 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getSessions, getSessionSignups } from "@/lib/data";
+import { getSessions, getSessionSignups, type SignupWithContact } from "@/lib/data";
 import { calendarConfigured } from "@/lib/calendar";
+import { configDiagnostics } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
+import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { createSession, deleteSession, setActive, syncCalendarNow } from "./actions";
+import type { Session } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +30,18 @@ export default async function SessionsPage({
 
   if (!isSupabaseConfigured()) return <ConfigNotice />;
 
-  const sessions = await getSessions();
-  const active = sessions.find((s) => s.is_active) ?? null;
-  const signups = active ? await getSessionSignups(active.id) : [];
+  let sessions: Session[];
+  let active: Session | null;
+  let signups: SignupWithContact[];
+  try {
+    sessions = await getSessions();
+    active = sessions.find((s) => s.is_active) ?? null;
+    signups = active ? await getSessionSignups(active.id) : [];
+  } catch (e) {
+    return (
+      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
+    );
+  }
   const yes = signups.filter((s) => s.status === "yes");
   const no = signups.filter((s) => s.status === "no");
   const pending = signups.filter((s) => s.status === "invited");
