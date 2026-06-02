@@ -1,5 +1,5 @@
 import { getServiceClient } from "./supabase";
-import type { Contact, Group, Session, Settings, Signup } from "./types";
+import type { Contact, Group, SentEmail, Session, Settings, Signup } from "./types";
 
 // ── Reads ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +109,17 @@ export async function getSessionSignups(
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data as unknown as SignupWithContact[]) ?? [];
+}
+
+export async function getSentEmails(limit = 100): Promise<SentEmail[]> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from("sent_emails")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as SentEmail[]) ?? [];
 }
 
 export async function getSignupByToken(

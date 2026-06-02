@@ -62,7 +62,15 @@ export function inviteEmail(d: InviteData): OutgoingEmail {
     <p style="margin:0 0 20px">${button(d.signupUrl, "I'm in")}</p>
     <p style="margin:0;color:#a8a29e;font-size:13px">This link is just for you and just for this date.</p>
   `);
-  return { to: d.toEmail, toName: d.toName, subject: `${d.title} — ${formatDate(d.eventDate)}`, html, text };
+  return {
+    to: d.toEmail,
+    toName: d.toName,
+    subject: `${d.title} — ${formatDate(d.eventDate)}`,
+    html,
+    text,
+    kind: "invite",
+    signupUrl: d.signupUrl,
+  };
 }
 
 export interface ReminderGroupLine {
@@ -119,7 +127,13 @@ export function reminderEmail(d: ReminderData): OutgoingEmail {
     d.ungrouped.length ? `\n\nUngrouped [${d.ungrouped.length}]\n${d.ungrouped.map((m) => `  - <${m.email}>`).join("\n")}` : ""
   }`;
 
-  return { to: d.toEmail, subject: `Training this week — ${formatDate(d.eventDate)}`, html, text };
+  return {
+    to: d.toEmail,
+    subject: `Training this week — ${formatDate(d.eventDate)}`,
+    html,
+    text,
+    kind: "reminder",
+  };
 }
 
 function formatTime(t: string): string {

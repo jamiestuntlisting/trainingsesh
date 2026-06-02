@@ -38,17 +38,21 @@ export async function inviteGroupForSession(
   session: Session,
   group: Group,
   sentOn: string,
+  force = false,
 ): Promise<{ invited: number; skipped: boolean; failed: { to: string; error: string }[] }> {
   const db = getServiceClient();
 
-  // Claim the day's send slot first (idempotency guard).
-  const claim = await db
-    .from("send_log")
-    .insert({ session_id: session.id, kind: "group_invite", group_id: group.id, sent_on: sentOn });
-  if (claim.error) {
-    // Unique violation → already sent today. Anything else → surface it.
-    if (claim.error.code === "23505") return { invited: 0, skipped: true, failed: [] };
-    throw claim.error;
+  // Claim the day's send slot first (idempotency guard). In force/test mode we
+  // skip this so you can re-trigger invites on demand.
+  if (!force) {
+    const claim = await db
+      .from("send_log")
+      .insert({ session_id: session.id, kind: "group_invite", group_id: group.id, sent_on: sentOn });
+    if (claim.error) {
+      // Unique violation → already sent today. Anything else → surface it.
+      if (claim.error.code === "23505") return { invited: 0, skipped: true, failed: [] };
+      throw claim.error;
+    }
   }
 
   // Members of this group.
@@ -96,17 +100,17 @@ export async function inviteGroupForSession(
       liveToken = existing?.token as string;
     }
 
-    messages.push(
-      inviteEmail({
-        toEmail: c.email,
-        toName: c.name,
-        signupUrl: `${appUrl()}/rsvp/${liveToken}`,
-        title: session.title,
-        eventDate: session.event_date,
-        eventTime: session.event_time,
-        location: session.location,
-      }),
-    );
+    const m = inviteEmail({
+      toEmail: c.email,
+      toName: c.name,
+      signupUrl: `${appUrl()}/rsvp/${liveToken}`,
+      title: session.title,
+      eventDate: session.event_date,
+      eventTime: session.event_time,
+      location: session.location,
+    });
+    m.sessionId = session.id;
+    messages.push(m);
   }
 
   const { sent, failed } = await sendBatch(messages);
@@ -117,6 +121,7 @@ export async function inviteGroupForSession(
 export async function sendReminderForSession(
   session: Session,
   sentOn: string,
+  force = false,
 ): Promise<{ sent: boolean; skipped: boolean }> {
   const db = getServiceClient();
   const settings = await getSettings();
@@ -125,12 +130,14 @@ export async function sendReminderForSession(
     throw new Error("No admin_email set in Settings — that's where reminders go.");
   }
 
-  const claim = await db
-    .from("send_log")
-    .insert({ session_id: session.id, kind: "reminder", group_id: null, sent_on: sentOn });
-  if (claim.error) {
-    if (claim.error.code === "23505") return { sent: false, skipped: true };
-    throw claim.error;
+  if (!force) {
+    const claim = await db
+      .from("send_log")
+      .insert({ session_id: session.id, kind: "reminder", group_id: null, sent_on: sentOn });
+    if (claim.error) {
+      if (claim.error.code === "23505") return { sent: false, skipped: true };
+      throw claim.error;
+    }
   }
 
   const groups = await getGroupsWithMembers();
@@ -142,15 +149,15 @@ export async function sendReminderForSession(
     members: g.members.map((m) => ({ name: m.name, email: m.email })),
   }));
 
-  await sendEmail(
-    reminderEmail({
-      toEmail: to,
-      title: session.title,
-      eventDate: session.event_date,
-      groups: groupLines,
-      ungrouped: ungrouped.map((c) => ({ name: c.name, email: c.email })),
-    }),
-  );
+  const reminder = reminderEmail({
+    toEmail: to,
+    title: session.title,
+    eventDate: session.event_date,
+    groups: groupLines,
+    ungrouped: ungrouped.map((c) => ({ name: c.name, email: c.email })),
+  });
+  reminder.sessionId = session.id;
+  await sendEmail(reminder);
 
   return { sent: true, skipped: false };
 }

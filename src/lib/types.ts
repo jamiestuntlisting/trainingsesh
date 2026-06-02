@@ -63,6 +63,20 @@ export interface Settings {
   updated_at: string;
 }
 
+export interface SentEmail {
+  id: string;
+  to_email: string;
+  to_name: string | null;
+  subject: string;
+  html: string;
+  body_text: string;
+  kind: string; // 'invite' | 'reminder' | 'test' | 'other'
+  signup_url: string | null;
+  session_id: string | null;
+  mode: string; // 'dry-run' | 'live'
+  created_at: string;
+}
+
 export const WEEKDAYS = [
   "Sunday",
   "Monday",

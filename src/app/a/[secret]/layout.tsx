@@ -18,6 +18,7 @@ export default async function AdminLayout({
     { href: `${base}/groups`, label: "Groups" },
     { href: `${base}/sessions`, label: "Sessions" },
     { href: `${base}/schedule`, label: "Schedule" },
+    { href: `${base}/outbox`, label: "Outbox" },
   ];
 
   return (

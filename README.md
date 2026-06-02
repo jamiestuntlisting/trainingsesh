@@ -44,9 +44,15 @@ npm run dev
 - Admin dashboard: `http://localhost:3000/a/<ADMIN_SECRET>`
 - A wrong secret returns 404, so the dashboard's existence isn't revealed.
 
-Without `SENDGRID_API_KEY`, the app runs in **dry-run mode**: emails are logged
-to the server console instead of being sent — so you can click through the whole
-flow locally with no accounts.
+## Testing without sending real email
+
+Without `SENDGRID_API_KEY` (or with `EMAIL_DRY_RUN=true`), the app runs in
+**test mode**: nothing is actually sent. Instead, every email is captured in the
+**Outbox** tab, where you can read the rendered message and click the unique
+signup link. The **“Send test invites now”** button there fires the whole invite
+flow for the active session immediately — ignoring the weekday schedule — so you
+can click a link, RSVP, and watch the count update on the dashboard. It's a full
+end-to-end test loop with zero real emails.
 
 ## Environment variables
 
