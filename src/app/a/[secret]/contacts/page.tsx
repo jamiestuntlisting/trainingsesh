@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getAllContacts } from "@/lib/data";
-import { configDiagnostics } from "@/lib/diagnostics";
+import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { PasteImport, StuntlistingSync } from "@/components/ImportForms";
@@ -23,9 +23,7 @@ export default async function ContactsPage({
   try {
     contacts = await getAllContacts();
   } catch (e) {
-    return (
-      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
-    );
+    return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
 
   return (

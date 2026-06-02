@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getSessions, getSessionSignups, type SignupWithContact } from "@/lib/data";
 import { calendarConfigured } from "@/lib/calendar";
-import { configDiagnostics } from "@/lib/diagnostics";
+import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { createSession, deleteSession, setActive, syncCalendarNow } from "./actions";
@@ -38,9 +38,7 @@ export default async function SessionsPage({
     active = sessions.find((s) => s.is_active) ?? null;
     signups = active ? await getSessionSignups(active.id) : [];
   } catch (e) {
-    return (
-      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
-    );
+    return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
   const yes = signups.filter((s) => s.status === "yes");
   const no = signups.filter((s) => s.status === "no");

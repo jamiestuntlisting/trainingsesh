@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getGroupsWithMembers, getSettings, type GroupWithMembers } from "@/lib/data";
 import { WEEKDAYS, type Settings } from "@/lib/types";
-import { configDiagnostics } from "@/lib/diagnostics";
+import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
 import { addGroup, deleteGroup, moveGroup, updateGroup, updateSettings } from "./actions";
@@ -40,9 +40,7 @@ export default async function SchedulePage({
     settings = await getSettings();
     groups = await getGroupsWithMembers();
   } catch (e) {
-    return (
-      <SetupDiagnostics diag={configDiagnostics()} error={e instanceof Error ? e.message : String(e)} />
-    );
+    return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
 
   return (

@@ -16,8 +16,10 @@ export function isSupabaseConfigured(): boolean {
 export function getServiceClient(): SupabaseClient {
   if (cached) return cached;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Trim defensively: pasting into a hosting dashboard often appends a stray
+  // newline or space, which passes URL parsing but breaks the actual request.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   if (!url || !key) {
     throw new Error(
