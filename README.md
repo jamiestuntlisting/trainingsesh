@@ -106,19 +106,25 @@ the server-side service role key. Never expose that key to the browser.
 
 ## Stuntlisting sync (optional)
 
-The adapter in `src/lib/stuntlisting.ts` is a **placeholder** until you share the
-real API. It currently assumes an authenticated `GET` returning a JSON array,
-and maps two configurable fields onto `{ email, name }`:
+`src/lib/stuntlisting.ts` reads contacts directly from the stuntlisting MySQL
+database. It is **strictly read-only** — it only runs `SELECT`s, and the
+configurable query is validated to reject anything that isn't a single SELECT.
 
-```
-STUNTLISTING_API_URL=...        # endpoint returning JSON
-STUNTLISTING_API_KEY=...        # sent as Authorization: Bearer <key>
-STUNTLISTING_EMAIL_FIELD=email
-STUNTLISTING_NAME_FIELD=name
-```
+Configure with `STUNTLISTING_DB_*` (see `.env.example`). The query must return
+columns aliased `email` and (optionally) `name`; override it with
+`STUNTLISTING_QUERY` if the default `users`-table query doesn't match the schema.
 
-Send me the base URL, auth scheme, and a sample response and I'll wire it up
-exactly.
+On the Contacts tab, **Preview schema** lists tables that have an email column
+and previews the query (handy for finding the right table/columns), and **Sync
+from stuntlisting** imports them.
+
+Networking notes:
+- The database must be reachable from the app's host. On Vercel that means the
+  RDS security group has to allow the function's egress. Vercel serverless IPs
+  are dynamic, so prefer a static-egress option (Vercel Secure Compute, an RDS
+  Proxy, or a bastion) over opening the group to the world.
+- Credentials are secrets — keep them in env vars only, and prefer a
+  least-privilege read-only DB user.
 
 ## Deploy (Vercel)
 

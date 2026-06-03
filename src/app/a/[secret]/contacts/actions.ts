@@ -3,7 +3,11 @@
 import { requireAdmin } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase";
 import { extractContacts } from "@/lib/extract-emails";
-import { fetchStuntlistingContacts, stuntlistingConfigured } from "@/lib/stuntlisting";
+import {
+  fetchStuntlistingContacts,
+  introspectStuntlisting,
+  stuntlistingConfigured,
+} from "@/lib/stuntlisting";
 import { revalidatePath } from "next/cache";
 
 export interface ActionState {
@@ -81,6 +85,32 @@ export async function syncStuntlistingAction(
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Sync failed." };
+  }
+}
+
+// Inspect the stuntlisting schema (through the deployed app, which can reach
+// the DB) to discover the right table/columns and preview the configured query.
+export async function previewStuntlistingAction(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+  if (!stuntlistingConfigured()) {
+    return { ok: false, message: "Stuntlisting DB isn't configured — set STUNTLISTING_DB_* env vars." };
+  }
+  try {
+    const s = await introspectStuntlisting();
+    const tables = s.tablesWithEmail.length
+      ? s.tablesWithEmail.map((t) => `${t.table}(${t.columns.join(", ")})`).join("  ·  ")
+      : "no email-like columns found";
+    const preview = s.sample.length
+      ? `Preview query returns e.g. ${s.sample.map((r) => r.email).join(", ")}`
+      : s.sampleError
+        ? `Preview query error: ${s.sampleError}`
+        : "Preview query returned 0 rows.";
+    return { ok: true, message: `DB "${s.database}". Email columns → ${tables}. ${preview}` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Introspection failed." };
   }
 }
 

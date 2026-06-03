@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import {
   importPastedAction,
+  previewStuntlistingAction,
   syncStuntlistingAction,
   type ActionState,
 } from "@/app/a/[secret]/contacts/actions";
@@ -47,18 +48,33 @@ export function PasteImport({ basePath }: { basePath: string }) {
 }
 
 export function StuntlistingSync({ basePath }: { basePath: string }) {
-  const [state, action, pending] = useActionState(syncStuntlistingAction, initial);
+  const [syncState, syncAction, syncPending] = useActionState(syncStuntlistingAction, initial);
+  const [prevState, prevAction, prevPending] = useActionState(previewStuntlistingAction, initial);
   return (
-    <form action={action}>
-      <input type="hidden" name="basePath" value={basePath} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
-      >
-        {pending ? "Syncing…" : "Sync from stuntlisting"}
-      </button>
-      <Result state={state} />
-    </form>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <form action={syncAction}>
+          <input type="hidden" name="basePath" value={basePath} />
+          <button
+            type="submit"
+            disabled={syncPending}
+            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:opacity-50"
+          >
+            {syncPending ? "Syncing…" : "Sync from stuntlisting"}
+          </button>
+        </form>
+        <form action={prevAction}>
+          <button
+            type="submit"
+            disabled={prevPending}
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+          >
+            {prevPending ? "Checking…" : "Preview schema"}
+          </button>
+        </form>
+      </div>
+      <Result state={syncState} />
+      <Result state={prevState} />
+    </div>
   );
 }
