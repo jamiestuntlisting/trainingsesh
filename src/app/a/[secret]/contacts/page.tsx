@@ -3,7 +3,7 @@ import { getAllContacts } from "@/lib/data";
 import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
-import { PasteImport, StuntlistingSync } from "@/components/ImportForms";
+import { PasteImport, StuntlistingSearch } from "@/components/ImportForms";
 import { deleteContact } from "./actions";
 import type { Contact } from "@/lib/types";
 
@@ -33,13 +33,12 @@ export default async function ContactsPage({
           <PasteImport basePath={base} />
         </section>
         <section className="rounded-xl border border-stone-200 bg-white p-5">
-          <h2 className="text-sm font-medium">Sync from stuntlisting</h2>
+          <h2 className="text-sm font-medium">Search stuntlisting</h2>
           <p className="mb-3 mt-1 text-xs text-stone-500">
-            Pulls contacts from the stuntlisting API (configure
-            <code className="mx-1 rounded bg-stone-100 px-1">STUNTLISTING_API_URL</code>
-            first).
+            Look people up live in the stuntlisting database and add just the ones you
+            want. Nothing else is imported.
           </p>
-          <StuntlistingSync basePath={base} />
+          <StuntlistingSearch basePath={base} />
         </section>
       </div>
 

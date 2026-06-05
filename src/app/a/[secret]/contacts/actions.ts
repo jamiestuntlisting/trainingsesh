@@ -3,16 +3,18 @@
 import { requireAdmin } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase";
 import { extractContacts } from "@/lib/extract-emails";
-import {
-  fetchStuntlistingContacts,
-  introspectStuntlisting,
-  stuntlistingConfigured,
-} from "@/lib/stuntlisting";
+import { searchStuntlistingUsers, stuntlistingConfigured } from "@/lib/stuntlisting";
 import { revalidatePath } from "next/cache";
 
 export interface ActionState {
   ok: boolean;
   message: string;
+}
+
+export interface SearchResult {
+  ok: boolean;
+  message: string;
+  results: { email: string; name: string | null }[];
 }
 
 async function insertNew(
@@ -60,57 +62,41 @@ export async function importPastedAction(
   };
 }
 
-// Pull contacts from the stuntlisting API.
-export async function syncStuntlistingAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
+// Live, read-only search of the stuntlisting users (by name or email).
+export async function searchStuntlistingAction(term: string): Promise<SearchResult> {
   await requireAdmin();
-  const basePath = String(formData.get("basePath") || "");
   if (!stuntlistingConfigured()) {
-    return {
-      ok: false,
-      message: "Stuntlisting API isn't configured yet — set STUNTLISTING_API_URL.",
-    };
+    return { ok: false, message: "Stuntlisting DB isn't configured — set STUNTLISTING_DB_* env vars.", results: [] };
+  }
+  const t = term.trim();
+  if (t.length < 2) {
+    return { ok: false, message: "Type at least 2 characters to search.", results: [] };
   }
   try {
-    const imported = await fetchStuntlistingContacts();
-    const { added, existing } = await insertNew(imported, "stuntlisting");
-    revalidatePath(`${basePath}/contacts`);
-    return {
-      ok: true,
-      message: `Synced ${imported.length} from stuntlisting — ${added} new${
-        existing ? `, ${existing} already had` : ""
-      }.`,
-    };
+    const results = await searchStuntlistingUsers(t, 25);
+    return { ok: true, message: "", results };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Sync failed." };
+    return { ok: false, message: e instanceof Error ? e.message : "Search failed.", results: [] };
   }
 }
 
-// Inspect the stuntlisting schema (through the deployed app, which can reach
-// the DB) to discover the right table/columns and preview the configured query.
-export async function previewStuntlistingAction(
-  _prev: ActionState,
-  _formData: FormData,
-): Promise<ActionState> {
+// Add a single person found via search into the local contacts list.
+export async function addStuntlistingContactAction(
+  basePath: string,
+  email: string,
+  name: string | null,
+): Promise<{ ok: boolean; message: string }> {
   await requireAdmin();
-  if (!stuntlistingConfigured()) {
-    return { ok: false, message: "Stuntlisting DB isn't configured — set STUNTLISTING_DB_* env vars." };
+  const e = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+    return { ok: false, message: "Invalid email." };
   }
   try {
-    const s = await introspectStuntlisting();
-    const tables = s.tablesWithEmail.length
-      ? s.tablesWithEmail.map((t) => `${t.table}(${t.columns.join(", ")})`).join("  ·  ")
-      : "no email-like columns found";
-    const preview = s.sample.length
-      ? `Preview query returns e.g. ${s.sample.map((r) => r.email).join(", ")}`
-      : s.sampleError
-        ? `Preview query error: ${s.sampleError}`
-        : "Preview query returned 0 rows.";
-    return { ok: true, message: `DB "${s.database}". Email columns → ${tables}. ${preview}` };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Introspection failed." };
+    const { added } = await insertNew([{ email: e, name: name?.trim() || null }], "stuntlisting");
+    revalidatePath(`${basePath}/contacts`);
+    return { ok: true, message: added ? "added" : "exists" };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed to add." };
   }
 }
 

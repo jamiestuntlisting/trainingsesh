@@ -133,6 +133,83 @@ export async function discoverStuntlistingSchema(): Promise<StuntlistingDiscover
   }
 }
 
+function ident(s: string): string {
+  return "`" + s.replace(/`/g, "``") + "`";
+}
+
+// Resolve which database to query: the configured one if it actually exists,
+// otherwise the sole non-system database (so a wrong/blank STUNTLISTING_DB_NAME
+// still works when there's only one app schema).
+async function resolveDatabase(conn: mysql.Connection): Promise<string> {
+  const configured = (process.env.STUNTLISTING_DB_NAME || "").trim();
+  const [rows] = await conn.query("SHOW DATABASES");
+  const all = (rows as Record<string, unknown>[]).map((r) => String(Object.values(r)[0]));
+  if (configured && all.includes(configured)) return configured;
+  const nonSystem = all.filter((d) => !SYSTEM_SCHEMAS.includes(d));
+  if (nonSystem.length === 1) return nonSystem[0];
+  if (nonSystem.length === 0) throw new Error("No application database found.");
+  throw new Error(`Multiple databases found (${nonSystem.join(", ")}); set STUNTLISTING_DB_NAME.`);
+}
+
+const NAME_CANDIDATES = [
+  "first_name", "last_name", "firstname", "lastname",
+  "name", "full_name", "fullname", "display_name", "displayname", "username",
+];
+
+// Live search over the stuntlisting users table. Read-only, parameterized.
+// Auto-detects the database, the email column, and a name expression so it
+// adapts to the actual schema instead of hard-coding column names.
+export async function searchStuntlistingUsers(
+  term: string,
+  limit = 25,
+): Promise<ImportedContact[]> {
+  const cfg = connectionConfig();
+  delete (cfg as { database?: string }).database;
+  const conn = await mysql.createConnection(cfg);
+  try {
+    const dbName = await resolveDatabase(conn);
+    const table = (process.env.STUNTLISTING_TABLE || "user").trim();
+
+    const [colRows] = await conn.query(
+      "SELECT COLUMN_NAME AS c FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?",
+      [dbName, table],
+    );
+    const cols = (colRows as { c: string }[]).map((r) => r.c);
+    if (cols.length === 0) throw new Error(`Table ${dbName}.${table} not found.`);
+    const lower = new Map(cols.map((c) => [c.toLowerCase(), c]));
+
+    const emailCol = lower.get("email") || cols.find((c) => /email/i.test(c));
+    if (!emailCol) throw new Error(`No email column on ${dbName}.${table}.`);
+
+    const first = lower.get("first_name") || lower.get("firstname");
+    const last = lower.get("last_name") || lower.get("lastname");
+    let nameExpr = "NULL";
+    if (first && last) {
+      nameExpr = `NULLIF(TRIM(CONCAT_WS(' ', ${ident(first)}, ${ident(last)})), '')`;
+    } else {
+      const single =
+        lower.get("name") || lower.get("full_name") || lower.get("fullname") ||
+        lower.get("display_name") || lower.get("displayname") || lower.get("username");
+      if (single) nameExpr = ident(single);
+    }
+
+    const searchCols = [emailCol, ...NAME_CANDIDATES.map((n) => lower.get(n)).filter(Boolean) as string[]];
+    const likeClause = searchCols.map((c) => `${ident(c)} LIKE ?`).join(" OR ");
+    const params = searchCols.map(() => `%${term}%`);
+    const cap = Math.min(Math.max(limit, 1), 100);
+
+    const sql =
+      `SELECT ${ident(emailCol)} AS email, ${nameExpr} AS name ` +
+      `FROM ${ident(dbName)}.${ident(table)} ` +
+      `WHERE (${likeClause}) AND ${ident(emailCol)} <> '' LIMIT ${cap}`;
+
+    const [rows] = await conn.query(sql, params);
+    return normalizeRows(rows as unknown[]);
+  } finally {
+    await conn.end();
+  }
+}
+
 export async function introspectStuntlisting(): Promise<StuntlistingSchema> {
   return withConnection(async (c) => {
     const database = (connectionConfig().database as string) || "";

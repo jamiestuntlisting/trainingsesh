@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import {
+  addStuntlistingContactAction,
   importPastedAction,
-  previewStuntlistingAction,
-  syncStuntlistingAction,
+  searchStuntlistingAction,
   type ActionState,
 } from "@/app/a/[secret]/contacts/actions";
 
@@ -47,34 +47,80 @@ export function PasteImport({ basePath }: { basePath: string }) {
   );
 }
 
-export function StuntlistingSync({ basePath }: { basePath: string }) {
-  const [syncState, syncAction, syncPending] = useActionState(syncStuntlistingAction, initial);
-  const [prevState, prevAction, prevPending] = useActionState(previewStuntlistingAction, initial);
+export function StuntlistingSearch({ basePath }: { basePath: string }) {
+  const [term, setTerm] = useState("");
+  const [results, setResults] = useState<{ email: string; name: string | null }[]>([]);
+  const [message, setMessage] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [status, setStatus] = useState<Record<string, "adding" | "added" | "error">>({});
+  const [pending, start] = useTransition();
+
+  function doSearch(e: React.FormEvent) {
+    e.preventDefault();
+    start(async () => {
+      const r = await searchStuntlistingAction(term);
+      setResults(r.results);
+      setSearched(true);
+      setMessage(r.ok ? "" : r.message);
+    });
+  }
+
+  async function add(email: string, name: string | null) {
+    setStatus((s) => ({ ...s, [email]: "adding" }));
+    const r = await addStuntlistingContactAction(basePath, email, name);
+    setStatus((s) => ({ ...s, [email]: r.ok ? "added" : "error" }));
+  }
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        <form action={syncAction}>
-          <input type="hidden" name="basePath" value={basePath} />
-          <button
-            type="submit"
-            disabled={syncPending}
-            className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:opacity-50"
-          >
-            {syncPending ? "Syncing…" : "Sync from stuntlisting"}
-          </button>
-        </form>
-        <form action={prevAction}>
-          <button
-            type="submit"
-            disabled={prevPending}
-            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
-          >
-            {prevPending ? "Checking…" : "Preview schema"}
-          </button>
-        </form>
-      </div>
-      <Result state={syncState} />
-      <Result state={prevState} />
+    <div>
+      <form onSubmit={doSearch} className="flex gap-2">
+        <input
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Search stuntlisting by name or email…"
+          className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500"
+        />
+        <button
+          type="submit"
+          disabled={pending || term.trim().length < 2}
+          className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-700 disabled:opacity-50"
+        >
+          {pending ? "Searching…" : "Search"}
+        </button>
+      </form>
+
+      {message && <p className="mt-2 text-sm text-red-600">{message}</p>}
+      {searched && !message && results.length === 0 && (
+        <p className="mt-2 text-sm text-stone-500">No matches in stuntlisting.</p>
+      )}
+
+      {results.length > 0 && (
+        <ul className="mt-3 divide-y divide-stone-100 rounded-lg border border-stone-200">
+          {results.map((r) => {
+            const st = status[r.email];
+            return (
+              <li key={r.email} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{r.name || r.email}</p>
+                  {r.name && <p className="truncate text-xs text-stone-500">{r.email}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => add(r.email, r.name)}
+                  disabled={st === "adding" || st === "added"}
+                  className={`flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-60 ${
+                    st === "added"
+                      ? "bg-green-100 text-green-700"
+                      : "border border-stone-300 hover:bg-stone-50"
+                  }`}
+                >
+                  {st === "added" ? "Added ✓" : st === "adding" ? "Adding…" : st === "error" ? "Retry" : "Add"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

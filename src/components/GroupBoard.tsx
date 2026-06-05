@@ -2,14 +2,17 @@
 
 import { useRef, useState } from "react";
 import {
-  closestCorners,
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -29,6 +32,14 @@ import { saveMembership } from "@/app/a/[secret]/groups/actions";
 
 const UNGROUPED = "__ungrouped__";
 type Items = Record<string, Contact[]>;
+
+// Drop onto whichever list the cursor is actually inside (intuitive and
+// reliable across multiple containers); fall back to rectangle intersection
+// when the pointer is in a gap between lists.
+const collisionStrategy: CollisionDetection = (args) => {
+  const pointer = pointerWithin(args);
+  return pointer.length > 0 ? pointer : rectIntersection(args);
+};
 
 export interface GroupMeta {
   id: string;
@@ -107,17 +118,36 @@ export default function GroupBoard({
   function onDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     setActiveId(null);
-    const prev = itemsRef.current;
+    if (!over) {
+      persist(itemsRef.current);
+      return;
+    }
 
-    if (over) {
-      const from = findContainer(active.id);
-      const to = findContainer(over.id);
-      if (from && to && from === to) {
+    const prev = itemsRef.current;
+    const from = findContainer(active.id);
+    const to = findContainer(over.id);
+
+    if (from && to) {
+      if (from === to) {
         const arr = prev[from];
         const oldIndex = arr.findIndex((c) => c.id === active.id);
         const newIndex = arr.findIndex((c) => c.id === over.id);
         if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
           set({ ...prev, [from]: arrayMove(arr, oldIndex, newIndex) });
+        }
+      } else {
+        // Safety net: complete a cross-list move even if onDragOver missed it.
+        const fromItems = prev[from];
+        const toItems = prev[to];
+        const moving = fromItems.find((c) => c.id === active.id);
+        if (moving) {
+          const overIndex = toItems.findIndex((c) => c.id === over.id);
+          const insertAt = overIndex >= 0 ? overIndex : toItems.length;
+          set({
+            ...prev,
+            [from]: fromItems.filter((c) => c.id !== active.id),
+            [to]: [...toItems.slice(0, insertAt), moving, ...toItems.slice(insertAt)],
+          });
         }
       }
     }
@@ -141,7 +171,8 @@ export default function GroupBoard({
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionStrategy}
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
