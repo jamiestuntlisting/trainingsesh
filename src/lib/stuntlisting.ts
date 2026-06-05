@@ -95,7 +95,44 @@ export interface StuntlistingSchema {
 // Help discover the right table/columns through the deployed app (which, unlike
 // this sandbox, can reach the database). Lists tables that have an email-ish
 // column, and previews the configured query.
-export async function introspectStuntlisting(): Promise<StuntlistingSchema> {
+// Connect WITHOUT selecting a database, to discover what's actually there —
+// used when the configured STUNTLISTING_DB_NAME is wrong/unknown.
+export interface StuntlistingDiscovery {
+  databases: string[];
+  emailColumns: { schema: string; table: string; column: string }[];
+}
+
+const SYSTEM_SCHEMAS = ["mysql", "information_schema", "performance_schema", "sys"];
+
+export async function discoverStuntlistingSchema(): Promise<StuntlistingDiscovery> {
+  const cfg = connectionConfig();
+  delete (cfg as { database?: string }).database; // no default schema
+  const conn = await mysql.createConnection(cfg);
+  try {
+    const [dbRows] = await conn.query("SHOW DATABASES");
+    const databases = (dbRows as Record<string, unknown>[])
+      .map((r) => String(Object.values(r)[0]))
+      .filter((d) => !SYSTEM_SCHEMAS.includes(d));
+
+    const [colRows] = await conn.query(
+      `SELECT TABLE_SCHEMA AS s, TABLE_NAME AS t, COLUMN_NAME AS c
+         FROM information_schema.columns
+        WHERE COLUMN_NAME LIKE '%email%'
+          AND TABLE_SCHEMA NOT IN ('mysql','information_schema','performance_schema','sys')
+        ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`,
+    );
+    const emailColumns = (colRows as { s: string; t: string; c: string }[]).map((r) => ({
+      schema: r.s,
+      table: r.t,
+      column: r.c,
+    }));
+
+    return { databases, emailColumns };
+  } finally {
+    await conn.end();
+  }
+}
+
   return withConnection(async (c) => {
     const database = (connectionConfig().database as string) || "";
     const [cols] = await c.query(
