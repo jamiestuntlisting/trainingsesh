@@ -6,10 +6,21 @@ import { NextRequest, NextResponse } from "next/server";
 // actions check, so mutations can't be invoked without having known the URL.
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const secret = process.env.ADMIN_SECRET;
+
+  // Bare root: bounce a returning admin (who holds the cookie from a previous
+  // visit to the secret URL) straight to the dashboard, so typing the plain
+  // domain "just works". Anyone without the cookie sees the empty landing page.
+  if (pathname === "/") {
+    if (secret && req.cookies.get("adm")?.value === secret) {
+      return NextResponse.redirect(new URL(`/a/${secret}`, req.url));
+    }
+    return NextResponse.next();
+  }
+
   const match = pathname.match(/^\/a\/([^/]+)(?:\/.*)?$/);
   if (!match) return NextResponse.next();
 
-  const secret = process.env.ADMIN_SECRET;
   if (!secret || match[1] !== secret) {
     return new NextResponse("Not found", { status: 404 });
   }
@@ -26,5 +37,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/a/:path*"],
+  matcher: ["/", "/a/:path*"],
 };
