@@ -133,6 +133,7 @@ export async function discoverStuntlistingSchema(): Promise<StuntlistingDiscover
   }
 }
 
+export async function introspectStuntlisting(): Promise<StuntlistingSchema> {
   return withConnection(async (c) => {
     const database = (connectionConfig().database as string) || "";
     const [cols] = await c.query(
