@@ -4,9 +4,25 @@ import { WEEKDAYS, type Settings } from "@/lib/types";
 import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
-import { addGroup, deleteGroup, moveGroup, updateGroup, updateSettings } from "./actions";
+import {
+  addGroup,
+  deleteGroup,
+  disconnectGoogleAction,
+  moveGroup,
+  updateGroup,
+  updateSettings,
+} from "./actions";
+import { googleConfigured } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
+
+const GOOGLE_MESSAGES: Record<string, string> = {
+  connected: "Google connected — email sending and calendar sync are now live. 🎬",
+  denied: "Google connection was cancelled.",
+  notoken:
+    "Google didn't return a refresh token. Remove this app at myaccount.google.com/permissions, then Connect again.",
+  error: "Couldn't complete the Google connection. Please try again.",
+};
 
 const inputCls =
   "w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-500";
@@ -26,10 +42,13 @@ function WeekdayOptions() {
 
 export default async function SchedulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ secret: string }>;
+  searchParams: Promise<{ google?: string }>;
 }) {
   const { secret } = await params;
+  const { google: googleStatus } = await searchParams;
   const base = `/a/${secret}`;
 
   if (!isSupabaseConfigured()) return <ConfigNotice />;
@@ -43,8 +62,61 @@ export default async function SchedulePage({
     return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
 
+  const gConfigured = googleConfigured();
+  const gConnected = gConfigured && Boolean(settings.google_refresh_token);
+
   return (
     <div className="space-y-8">
+      {googleStatus && GOOGLE_MESSAGES[googleStatus] && (
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            googleStatus === "connected"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          {GOOGLE_MESSAGES[googleStatus]}
+        </div>
+      )}
+
+      <section className="rounded-xl border border-stone-200 bg-white p-5">
+        <h2 className="text-sm font-semibold">Google connection (email + calendar)</h2>
+        <p className="mb-3 mt-1 text-xs text-stone-500">
+          Sends invites from your Gmail and can mirror sessions to your calendar — one connection.
+        </p>
+        {!gConfigured ? (
+          <p className="text-sm text-amber-700">
+            First set <code className="rounded bg-stone-100 px-1">GOOGLE_CLIENT_ID</code> and{" "}
+            <code className="rounded bg-stone-100 px-1">GOOGLE_CLIENT_SECRET</code> in Vercel (see the
+            README), redeploy, then connect.
+          </p>
+        ) : gConnected ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-2 text-sm">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+              Connected{settings.google_email ? ` as ${settings.google_email}` : ""}
+            </span>
+            <a
+              href={`${base}/google/connect`}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+            >
+              Reconnect
+            </a>
+            <form action={disconnectGoogleAction.bind(null, base)}>
+              <button type="submit" className="text-xs text-stone-400 transition hover:text-red-600">
+                Disconnect
+              </button>
+            </form>
+          </div>
+        ) : (
+          <a
+            href={`${base}/google/connect`}
+            className="inline-block rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-stone-700"
+          >
+            Connect Google
+          </a>
+        )}
+      </section>
       <section className="rounded-xl border border-stone-200 bg-white p-5">
         <h2 className="text-sm font-semibold">Weekly reminder to you</h2>
         <p className="mb-4 mt-1 text-xs text-stone-500">

@@ -2,8 +2,15 @@
 
 import { requireAdmin } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase";
+import { disconnectGoogle } from "@/lib/google";
 import { revalidatePath } from "next/cache";
 import type { Group } from "@/lib/types";
+
+export async function disconnectGoogleAction(basePath: string): Promise<void> {
+  await requireAdmin();
+  await disconnectGoogle();
+  revalidatePath(`${basePath}/schedule`);
+}
 
 function str(v: FormDataEntryValue | null): string | null {
   const s = typeof v === "string" ? v.trim() : "";

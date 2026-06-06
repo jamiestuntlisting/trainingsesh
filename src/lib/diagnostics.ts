@@ -50,7 +50,7 @@ export function configDiagnostics(): ConfigDiagnostics {
     hasAppUrl: Boolean(rawAppUrl),
     appUrlValid,
     appUrl: rawAppUrl,
-    emailReady: Boolean(process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM),
+    emailReady: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   };
 }
 

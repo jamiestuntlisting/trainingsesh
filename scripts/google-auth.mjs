@@ -15,7 +15,10 @@ import { google } from "googleapis";
 
 const PORT = 5555;
 const REDIRECT = `http://localhost:${PORT}/oauth2callback`;
-const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
+const SCOPES = [
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/calendar.events",
+];
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
 const clientSecret = process.env.GOOGLE_CLIENT_SECRET;

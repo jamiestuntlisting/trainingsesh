@@ -1,25 +1,18 @@
 import { google } from "googleapis";
+import { authorizedClient, googleConnected } from "./google";
 
 // Google Calendar adapter. Writes the session to your calendar and lists the
 // confirmed attendees in the event DESCRIPTION (Google does not email them —
-// your app is the only thing that contacts people). If the GOOGLE_* env vars
-// are unset, every function no-ops so the rest of the app keeps working.
+// your app is the only thing that contacts people). Uses the same Google
+// connection as email; if Google isn't connected, every function no-ops so the
+// rest of the app keeps working.
 
-export function calendarConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_CLIENT_ID &&
-      process.env.GOOGLE_CLIENT_SECRET &&
-      process.env.GOOGLE_REFRESH_TOKEN,
-  );
+export async function calendarReady(): Promise<boolean> {
+  return googleConnected();
 }
 
-function client() {
-  const oauth2 = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  );
-  oauth2.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-  return google.calendar({ version: "v3", auth: oauth2 });
+async function client() {
+  return google.calendar({ version: "v3", auth: await authorizedClient() });
 }
 
 export interface CalendarEventInput {
@@ -65,8 +58,8 @@ function buildBody(input: CalendarEventInput) {
 export async function createCalendarEvent(
   input: CalendarEventInput,
 ): Promise<string | null> {
-  if (!calendarConfigured()) return null;
-  const cal = client();
+  if (!(await googleConnected())) return null;
+  const cal = await client();
   const res = await cal.events.insert({
     calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
     requestBody: buildBody(input),
@@ -79,8 +72,8 @@ export async function updateCalendarEvent(
   eventId: string,
   input: CalendarEventInput,
 ): Promise<void> {
-  if (!calendarConfigured()) return;
-  const cal = client();
+  if (!(await googleConnected())) return;
+  const cal = await client();
   await cal.events.patch({
     calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
     eventId,

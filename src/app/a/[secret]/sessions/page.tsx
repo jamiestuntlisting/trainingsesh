@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getSessions, getSessionSignups, type SignupWithContact } from "@/lib/data";
-import { calendarConfigured } from "@/lib/calendar";
+import { calendarReady } from "@/lib/calendar";
 import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
@@ -43,6 +43,7 @@ export default async function SessionsPage({
   const yes = signups.filter((s) => s.status === "yes");
   const no = signups.filter((s) => s.status === "no");
   const pending = signups.filter((s) => s.status === "invited");
+  const calReady = await calendarReady();
 
   return (
     <div className="space-y-8">
@@ -147,8 +148,8 @@ export default async function SessionsPage({
             <form action={syncCalendarNow.bind(null, base)}>
               <button
                 type="submit"
-                disabled={!calendarConfigured()}
-                title={calendarConfigured() ? "" : "Set GOOGLE_* env vars to enable"}
+                disabled={!calReady}
+                title={calReady ? "" : "Connect Google on the Schedule tab to enable"}
                 className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm transition hover:bg-white disabled:opacity-40"
               >
                 Sync calendar now

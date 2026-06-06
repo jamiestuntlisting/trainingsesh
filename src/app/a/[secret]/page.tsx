@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { emailConfigured } from "@/lib/email";
-import { calendarConfigured } from "@/lib/calendar";
+import { emailReady } from "@/lib/email";
+import { calendarReady } from "@/lib/calendar";
 import { stuntlistingConfigured } from "@/lib/stuntlisting";
 import { getActiveSession, getSessionSignups, getSettings } from "@/lib/data";
 import { WEEKDAYS, type Session } from "@/lib/types";
@@ -65,6 +65,7 @@ export default async function Dashboard({
     return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
   const confirmed = signups.filter((s) => s.status === "yes").length;
+  const [emailOk, calendarOk] = await Promise.all([emailReady(), calendarReady()]);
 
   return (
     <div className="space-y-8">
@@ -121,9 +122,9 @@ export default async function Dashboard({
         <h2 className="mb-3 text-sm font-semibold text-stone-600">Integration status</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Health
-            ok={emailConfigured()}
-            label="Email (SendGrid)"
-            hint="Set SENDGRID_API_KEY + EMAIL_FROM. Until then, emails are logged, not sent."
+            ok={emailOk}
+            label="Email (Gmail)"
+            hint="Connect Google on the Schedule tab. Until then, emails are captured in the Outbox, not sent."
           />
           <Health
             ok={Boolean(settings.admin_email)}
@@ -131,14 +132,14 @@ export default async function Dashboard({
             hint="Set your email on the Schedule tab so reminders have somewhere to go."
           />
           <Health
-            ok={calendarConfigured()}
+            ok={calendarOk}
             label="Google Calendar"
-            hint="Optional. Set GOOGLE_* env vars to mirror sessions to your calendar."
+            hint="Optional. Connect Google on the Schedule tab to mirror sessions to your calendar."
           />
           <Health
             ok={stuntlistingConfigured()}
-            label="Stuntlisting sync"
-            hint="Optional. Set STUNTLISTING_API_URL once you share the API details."
+            label="Stuntlisting search"
+            hint="Optional. Set STUNTLISTING_DB_* to search stuntlisting from Contacts."
           />
         </div>
       </section>

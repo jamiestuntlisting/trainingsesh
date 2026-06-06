@@ -80,29 +80,35 @@ Generate secrets with `openssl rand -hex 24`.
 Every table has Row Level Security on with no policies, so the only way in is
 the server-side service role key. Never expose that key to the browser.
 
-## Email (SendGrid, no domain required)
+## Email + Calendar (Google) setup
 
-1. Create a SendGrid account and an **API key** (Settings → API Keys).
-2. Use **Single Sender Verification** (Settings → Sender Authentication) to
-   verify the address you want to send from — e.g. your own Gmail. This lets you
-   send without owning a domain.
-3. Set `SENDGRID_API_KEY`, `EMAIL_FROM` (the verified address), and
-   `EMAIL_FROM_NAME`.
+Email is sent through **Gmail** (free, from your own address, no domain), and
+Calendar sync uses the **same** Google connection. The refresh token is obtained
+with a one-click in-app **Connect Google** button and stored in the database —
+you never paste a token into env.
 
-## Google Calendar (optional)
+One-time setup in [Google Cloud Console](https://console.cloud.google.com/):
 
-1. In Google Cloud Console, enable the **Google Calendar API** and create an
-   **OAuth client** (Web application) with redirect URI
-   `http://localhost:5555/oauth2callback`.
-2. Mint a refresh token:
+1. Create a project and **enable the Gmail API and the Google Calendar API**.
+2. Configure the **OAuth consent screen** (External). Add your Google address as
+   a test user, then **Publish** the app ("In production") — important, because
+   apps left in "Testing" issue refresh tokens that expire after 7 days.
+3. Create an **OAuth client ID** → *Web application*. Add this Authorized
+   redirect URI (your deployment URL + `/api/google/callback`):
 
-   ```bash
-   GOOGLE_CLIENT_ID=xxx GOOGLE_CLIENT_SECRET=yyy npm run google-auth
+   ```
+   https://trainingsesh.vercel.app/api/google/callback
    ```
 
-3. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, and
-   (optionally) `GOOGLE_CALENDAR_ID` in your env. If these are unset, calendar
-   sync is simply skipped.
+4. Put the client id/secret in your env as `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET`, then redeploy.
+5. In the app: **Schedule → Connect Google** → approve. Done — email sends from
+   your Gmail and Calendar sync is live.
+
+Until Google is connected, email runs in **test mode** (captured in the Outbox,
+see below). `GOOGLE_CALENDAR_ID` defaults to `primary`. There's also a CLI
+fallback (`npm run google-auth`) that mints a `GOOGLE_REFRESH_TOKEN` if you'd
+rather not use the in-app flow.
 
 ## Stuntlisting sync (optional)
 

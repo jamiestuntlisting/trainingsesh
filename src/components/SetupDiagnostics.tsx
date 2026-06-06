@@ -75,7 +75,7 @@ export default function SetupDiagnostics({
           value={diag.appUrl || "(empty)"}
           hint="Set this to https://trainingsesh.vercel.app (it must start with https://)."
         />
-        <Row ok={diag.emailReady} label="Email (SendGrid) — optional" />
+        <Row ok={diag.emailReady} label="Google OAuth keys (email/calendar) — optional" />
       </div>
 
       {error && (

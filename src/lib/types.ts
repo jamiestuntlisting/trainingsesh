@@ -60,6 +60,8 @@ export interface Settings {
   reminder_time: string;
   admin_email: string | null;
   timezone: string;
+  google_refresh_token: string | null;
+  google_email: string | null;
   updated_at: string;
 }
 

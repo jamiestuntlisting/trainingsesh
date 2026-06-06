@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getActiveSession, getSentEmails } from "@/lib/data";
-import { isDryRun } from "@/lib/email";
+import { emailReady } from "@/lib/email";
 import { configDiagnostics, describeError } from "@/lib/diagnostics";
 import ConfigNotice from "@/components/ConfigNotice";
 import SetupDiagnostics from "@/components/SetupDiagnostics";
@@ -49,7 +49,7 @@ export default async function OutboxPage({
     return <SetupDiagnostics diag={configDiagnostics()} error={describeError(e)} />;
   }
 
-  const dry = isDryRun();
+  const dry = !(await emailReady());
 
   return (
     <div className="space-y-6">
@@ -63,13 +63,13 @@ export default async function OutboxPage({
         {dry ? (
           <p>
             <strong>Test mode is on.</strong> No real emails are sent — every message is captured
-            here so you can review it and click the signup link. (To send for real, set{" "}
-            <code className="rounded bg-blue-100 px-1">SENDGRID_API_KEY</code> and remove{" "}
+            here so you can review it and click the signup link. (To send for real,{" "}
+            <strong>Connect Google</strong> on the Schedule tab and clear{" "}
             <code className="rounded bg-blue-100 px-1">EMAIL_DRY_RUN</code>.)
           </p>
         ) : (
           <p>
-            <strong>Live mode.</strong> Emails are really being sent via SendGrid, and also logged
+            <strong>Live mode.</strong> Emails are really being sent from your Gmail, and also logged
             here. Set <code className="rounded bg-amber-100 px-1">EMAIL_DRY_RUN=true</code> to switch
             to capture-only testing.
           </p>
